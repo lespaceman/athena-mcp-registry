@@ -90,6 +90,14 @@ GET /_api/health
 }
 ```
 
+### Metrics (Prometheus)
+
+```bash
+GET /_api/metrics
+```
+
+**Note**: This is currently a placeholder endpoint. In production, integrate `prom-client` for real metrics.
+
 ## Configuration
 
 Configuration is validated using Zod and loaded from environment variables:
@@ -98,16 +106,18 @@ Configuration is validated using Zod and loaded from environment variables:
 |----------|------|---------|-------------|
 | `PORT` | number | `3000` | Server port |
 | `NODE_ENV` | `development` \| `production` \| `test` | `development` | Environment |
-| `DB_PATH` | string | `./data/dev.sqlite` | SQLite database path |
+| `DATABASE_URL` | string | `./data/dev.sqlite` | SQLite database path |
 | `LOG_LEVEL` | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` | `info` | Logging level |
+| `SENTRY_DSN` | string | - | Sentry DSN for error tracking (optional) |
 
 Example `.env` file:
 
 ```env
 PORT=3000
 NODE_ENV=development
-DB_PATH=./data/dev.sqlite
+DATABASE_URL=./data/dev.sqlite
 LOG_LEVEL=info
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/project
 ```
 
 ## Database
@@ -168,7 +178,144 @@ import exampleRoutes from './routes/example.js';
 app.register(exampleRoutes, { prefix: '/_api' });
 ```
 
-## Phase 1 Status
+## Observability
+
+### Logging
+
+The application uses **Pino** for structured logging:
+
+- **Development**: Pretty-printed, colorized logs
+- **Production**: Structured JSON logs for easy parsing and aggregation
+
+**Log Levels**: `fatal`, `error`, `warn`, `info`, `debug`, `trace`
+
+Configure via the `LOG_LEVEL` environment variable.
+
+### Error Tracking
+
+**Sentry Integration** (optional):
+
+To enable error tracking, set the `SENTRY_DSN` environment variable:
+
+```bash
+export SENTRY_DSN=https://your-key@sentry.io/your-project
+```
+
+Sentry will automatically capture and report:
+- Unhandled exceptions
+- Application errors
+- Performance metrics (trace sampling rate: 10% in production)
+
+### Monitoring
+
+- **Health Check**: `GET /_api/health` - Database connectivity and uptime
+- **Metrics**: `GET /_api/metrics` - Placeholder for Prometheus metrics
+
+## CI/CD
+
+### Continuous Integration
+
+The CI pipeline runs on every push and PR:
+
+- Security audit (`pnpm audit`)
+- Linting (`eslint`)
+- Type checking (`tsc`)
+- Unit tests (`vitest`)
+- Build verification
+
+**Workflow**: `.github/workflows/ci.yml`
+
+### Continuous Deployment
+
+On merge to `main`, the CD pipeline:
+
+1. Runs full test suite
+2. Builds multi-stage Docker image
+3. Runs smoke tests (health + metrics endpoints)
+4. Pushes to GitHub Container Registry (GHCR)
+
+**Workflow**: `.github/workflows/cd.yml`
+
+**Image Repository**: `ghcr.io/lespaceman/athena-mcp-registry`
+
+**Image Tags**:
+- `latest` - Latest main branch build
+- `<sha>` - Specific commit SHA
+- `<version>` - Semantic version (when tagged)
+
+See [RELEASE.md](RELEASE.md) for detailed release and deployment procedures.
+
+## Security
+
+### Automated Security
+
+- **Dependabot**: Automatically creates PRs for dependency updates
+- **npm audit**: Runs on every CI build
+- **GitHub Container Registry**: Secure, private image storage
+
+### Security Checklist
+
+Before deploying to production, ensure:
+
+- [ ] All dependencies are up to date (`pnpm update`)
+- [ ] No critical vulnerabilities (`pnpm audit`)
+- [ ] Secrets are stored in environment variables (never in code)
+- [ ] `NODE_ENV=production` is set in production
+- [ ] Database file has appropriate permissions
+- [ ] Sentry DSN is configured for error tracking
+- [ ] Health check endpoint is monitored
+- [ ] HTTPS is enabled (via reverse proxy)
+- [ ] Rate limiting is configured (if needed)
+- [ ] Input validation is in place for all endpoints
+- [ ] SQL injection prevention (parameterized queries)
+- [ ] CORS is properly configured (if serving APIs to browsers)
+- [ ] Security headers are set (via reverse proxy or Fastify plugin)
+- [ ] Container runs as non-root user (already configured in Dockerfile)
+- [ ] Sensitive logs are redacted (review pino configuration)
+
+### Reporting Security Issues
+
+If you discover a security vulnerability, please email [security contact] or open a private security advisory on GitHub.
+
+**Do not** open public issues for security vulnerabilities.
+
+## Docker
+
+### Build and Run
+
+```bash
+# Build the image
+docker build -t athena-mcp-registry .
+
+# Run in production mode
+docker run -d \
+  --name athena-mcp-registry \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -e NODE_ENV=production \
+  -e LOG_LEVEL=info \
+  athena-mcp-registry
+
+# Check logs
+docker logs -f athena-mcp-registry
+
+# Health check
+curl http://localhost:3000/_api/health
+```
+
+### Docker Compose
+
+Use the provided `docker-compose.dev.yml` for local development:
+
+```bash
+docker-compose -f docker-compose.dev.yml up
+```
+
+For production deployment, see [RELEASE.md](RELEASE.md).
+
+## Development Phases
+
+### Phase 1: Foundation ✅
 
 - ✅ Working `createApp()` + `server.ts`
 - ✅ Health endpoint (`GET /_api/health`)
@@ -179,6 +326,26 @@ app.register(exampleRoutes, { prefix: '/_api' });
 - ✅ ESLint + Prettier
 - ✅ Basic health endpoint test
 - ✅ README with quick start
+
+### Phase 2: Hardening ✅
+
+- ✅ Migration system with up/down support
+- ✅ Comprehensive test coverage
+- ✅ Pre-commit hooks (Husky)
+- ✅ Docker development environment
+- ✅ CI pipeline (GitHub Actions)
+
+### Phase 3: CI/CD & Observability ✅
+
+- ✅ CD pipeline with Docker build and push
+- ✅ Smoke tests in CI/CD
+- ✅ Structured logging (Pino)
+- ✅ Error tracking setup (Sentry)
+- ✅ Health check and metrics endpoints
+- ✅ Dependabot configuration
+- ✅ Security audit in CI
+- ✅ Release documentation
+- ✅ Security checklist
 
 ## License
 
