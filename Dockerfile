@@ -1,5 +1,5 @@
 # Dockerfile for local development and production
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
