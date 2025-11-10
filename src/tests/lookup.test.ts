@@ -331,11 +331,11 @@ describe('Lookup endpoint - API Contract Tests', () => {
 
   describe('HTTP methods', () => {
     it('should only accept GET requests', async () => {
-      const methods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+      const methods = ['POST', 'PUT', 'DELETE', 'PATCH'] as const;
 
       for (const method of methods) {
         const response = await app.inject({
-          method,
+          method: method,
           url: '/api/v1/lookup?domain=test.com',
         });
 
