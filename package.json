@@ -16,7 +16,7 @@
     "format": "prettier --write 'src/**/*.{ts,js,json}'",
     "migrate:run": "tsx src/scripts/migrate.ts",
     "migrate:status": "tsx src/scripts/migrate.ts status",
-    "prepare": "husky"
+    "prepare": "node -e \"try{require.resolve('husky')}catch{process.exit(0)}\" && husky || true"
   },
   "keywords": [
     "mcp",
