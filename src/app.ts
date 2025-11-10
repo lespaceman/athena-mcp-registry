@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import * as Sentry from '@sentry/node';
 import { config } from './config/index.js';
 import healthRoutes from './routes/health.js';
+import lookupRoutes from './routes/lookup.js';
 import metricsRoutes from './routes/metrics.js';
 
 // Initialize Sentry if DSN is provided
@@ -42,6 +43,7 @@ export function createApp(): FastifyInstance {
   // Register routes with API prefix
   app.register(healthRoutes, { prefix: '/_api' });
   app.register(metricsRoutes, { prefix: '/_api' });
+  app.register(lookupRoutes, { prefix: '/api/v1' });
 
   // Add Sentry error handler if initialized
   if (config.SENTRY_DSN) {
