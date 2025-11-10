@@ -1,0 +1,157 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual triggers
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --config.ignore-scripts=false
+
+      - name: Run tests
+        run: pnpm test:quick
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: production
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run smoke test
+        run: |
+          # Start the container in detached mode
+          docker run -d \
+            --name athena-mcp-registry-test \
+            -p 4000:3000 \
+            -e NODE_ENV=production \
+            -e LOG_LEVEL=info \
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+          # Wait for the container to be ready
+          echo "Waiting for container to start..."
+          sleep 5
+
+          # Check if the container is still running
+          if ! docker ps | grep -q athena-mcp-registry-test; then
+            echo "Container failed to start!"
+            docker logs athena-mcp-registry-test
+            exit 1
+          fi
+
+          # Test the health endpoint
+          echo "Testing health endpoint..."
+          max_retries=10
+          retry_count=0
+
+          while [ $retry_count -lt $max_retries ]; do
+            if curl -f http://localhost:4000/_api/health; then
+              echo "Health check passed!"
+              break
+            else
+              echo "Retry $((retry_count + 1))/$max_retries..."
+              sleep 2
+              retry_count=$((retry_count + 1))
+            fi
+          done
+
+          if [ $retry_count -eq $max_retries ]; then
+            echo "Health check failed after $max_retries retries"
+            docker logs athena-mcp-registry-test
+            exit 1
+          fi
+
+          # Test the metrics endpoint
+          echo "Testing metrics endpoint..."
+          if curl -f http://localhost:4000/_api/metrics; then
+            echo "Metrics endpoint check passed!"
+          else
+            echo "Metrics endpoint check failed"
+            docker logs athena-mcp-registry-test
+            exit 1
+          fi
+
+          # Clean up
+          docker stop athena-mcp-registry-test
+          docker rm athena-mcp-registry-test
+
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: production
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ghcr.io/${{ github.repository }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Latest**: ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull the image:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
