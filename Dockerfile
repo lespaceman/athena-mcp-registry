@@ -16,7 +16,7 @@ FROM base AS development
 COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --dangerously-allow-all-builds
 
 # Copy source code
 COPY . .
@@ -33,7 +33,7 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --dangerously-allow-all-builds
 
 # Copy source code
 COPY . .
@@ -47,7 +47,7 @@ FROM base AS production
 COPY package.json pnpm-lock.yaml* ./
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --dangerously-allow-all-builds
 
 # Copy built application
 COPY --from=build /app/dist ./dist
