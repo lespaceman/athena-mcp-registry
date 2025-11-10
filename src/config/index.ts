@@ -3,7 +3,7 @@ import { z } from 'zod';
 const configSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  DB_PATH: z.string().default('./data/dev.sqlite'),
+  DATABASE_URL: z.string().default('./data/dev.sqlite'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
