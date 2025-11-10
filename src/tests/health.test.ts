@@ -1,17 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
-import { createApp } from '../app.js';
+import { createTestApp } from './_helpers/index.js';
 
 describe('Health endpoint', () => {
   let app: FastifyInstance;
+  let cleanup: () => Promise<void>;
 
   beforeAll(async () => {
-    app = createApp();
+    const testSetup = createTestApp();
+    app = testSetup.app;
+    cleanup = testSetup.cleanup;
     await app.ready();
   });
 
   afterAll(async () => {
-    await app.close();
+    await cleanup();
   });
 
   it('GET /_api/health returns ok', async () => {

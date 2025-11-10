@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind mount source code for hot reload
+      - .:/app
+      - /app/node_modules
+      # Bind mount data directory for persistence
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=./data/dev.sqlite
+      - PORT=3000
+      - LOG_LEVEL=debug
+    command: pnpm dev
+    restart: unless-stopped
