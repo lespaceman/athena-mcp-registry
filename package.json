@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "dev": "pnpm migrate:run && ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "pnpm migrate:run && tsx --watch src/server.ts",
     "build": "tsc -p .",
     "start": "node dist/server.js",
     "test": "vitest",
@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write 'src/**/*.{ts,js,json}'",
-    "migrate:run": "ts-node-dev --transpile-only src/scripts/migrate.ts",
-    "migrate:status": "ts-node-dev --transpile-only src/scripts/migrate.ts status",
+    "migrate:run": "tsx src/scripts/migrate.ts",
+    "migrate:status": "tsx src/scripts/migrate.ts status",
     "prepare": "husky"
   },
   "keywords": [
@@ -45,6 +45,7 @@
     "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.8"
   }
